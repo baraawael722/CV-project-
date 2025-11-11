@@ -23,7 +23,7 @@ function extractFieldsFromText(text) {
   const skillPatterns = [
     /\b(javascript|js|typescript|ts|react|angular|vue|node\.?js|express|mongodb|mysql|postgresql|python|java|c\+\+|c#|php|ruby|go|rust|swift|kotlin|html|css|sass|tailwind|bootstrap|git|docker|kubernetes|aws|azure|gcp|machine learning|ai|data science|pandas|numpy|tensorflow|pytorch)\b/gi
   ];
-  
+
   const foundSkills = new Set();
   skillPatterns.forEach(pattern => {
     const matches = text.match(pattern);
@@ -39,7 +39,7 @@ function extractFieldsFromText(text) {
     /experience[:\s]+(\d+)\+?\s*years?/i,
     /(\d+)\s*years?\s+(?:in|as|with)/i
   ];
-  
+
   for (const pattern of expPatterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
@@ -54,7 +54,7 @@ function extractFieldsFromText(text) {
     /(cairo university|ain shams university|alexandria university|harvard|mit|stanford|oxford|cambridge)/i,
     /\b([A-Z][a-z]+\s+University)\b/
   ];
-  
+
   for (const pattern of uniPatterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
@@ -68,7 +68,7 @@ function extractFieldsFromText(text) {
     /\b(bachelor|master|phd|doctorate|b\.?sc|m\.?sc|mba|b\.?a|m\.?a|b\.?eng|m\.?eng)\s+(?:of|in|degree)?\s*([^\n]{5,60})?/i,
     /(computer science|engineering|business administration|data science|information technology|software engineering)/i
   ];
-  
+
   for (const pattern of degreePatterns) {
     const match = text.match(pattern);
     if (match) {
@@ -82,7 +82,7 @@ function extractFieldsFromText(text) {
     /(\+?\d{1,4}[\s-]?)?\(?\d{2,4}\)?[\s-]?\d{3,4}[\s-]?\d{3,4}/,
     /\b\d{10,15}\b/
   ];
-  
+
   for (const pattern of phonePatterns) {
     const match = text.match(pattern);
     if (match && match[0]) {
@@ -348,6 +348,38 @@ export const updateApplicationStatus = async (req, res) => {
   }
 };
 
+// Get my profile (for authenticated employee)
+export const getMyProfile = async (req, res) => {
+  try {
+    console.log('👤 Getting profile for:', req.user.email);
+
+    const candidate = await Candidate.findOne({ email: req.user.email });
+
+    if (!candidate) {
+      console.log('⚠️ No candidate profile found, returning empty');
+      return res.json({
+        success: true,
+        data: null,
+        message: "No profile found. Please create one."
+      });
+    }
+
+    console.log('✅ Profile found:', candidate._id);
+
+    res.json({
+      success: true,
+      data: candidate,
+    });
+  } catch (error) {
+    console.error('❌ Error fetching profile:', error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 // Calculate match percentage (AI placeholder)
 export const calculateMatch = async (req, res) => {
   try {
@@ -397,14 +429,20 @@ export const calculateMatch = async (req, res) => {
 // Upload resume (PDF) and extract text
 export const uploadResume = async (req, res) => {
   try {
+    console.log("📤 Upload request received from user:", req.user?.email);
+    console.log("📄 File received:", req.file ? `${req.file.originalname} (${req.file.size} bytes)` : "NO FILE");
+
     // multer memoryStorage places file in req.file.buffer
     if (!req.file || !req.file.buffer) {
+      console.log("❌ No file uploaded");
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
 
     const bucket = getGridFSBucket();
     const buffer = req.file.buffer;
     const filename = `${req.user._id}_${Date.now()}.pdf`;
+
+    console.log("💾 Uploading to GridFS:", filename);
 
     // Upload file to GridFS
     const uploadStream = bucket.openUploadStream(filename, {
@@ -418,7 +456,7 @@ export const uploadResume = async (req, res) => {
 
     // Create readable stream from buffer and pipe to GridFS
     const readableStream = Readable.from(buffer);
-    
+
     await new Promise((resolve, reject) => {
       readableStream.pipe(uploadStream)
         .on("error", reject)
@@ -427,23 +465,34 @@ export const uploadResume = async (req, res) => {
 
     const fileId = uploadStream.id;
 
+    console.log("✅ File uploaded to GridFS with ID:", fileId.toString());
+
     // Extract text from PDF buffer
     let extractedText = "";
     try {
       const data = await pdf(buffer);
       extractedText = data && data.text ? data.text : "";
+      console.log("📝 Text extracted, length:", extractedText.length, "chars");
     } catch (e) {
-      console.warn("PDF parse failed:", e.message);
+      console.warn("⚠️ PDF parse failed:", e.message);
       extractedText = "";
     }
 
     // Extract structured fields from text
     const extractedFields = extractFieldsFromText(extractedText);
 
+    console.log("🔍 Extracted fields:", {
+      skills: extractedFields.skills.length,
+      university: extractedFields.university,
+      degree: extractedFields.degree,
+      phone: extractedFields.phone
+    });
+
     // Find candidate by authenticated user's email or create/update
     let candidate = null;
     if (req.user && req.user.email) {
       candidate = await Candidate.findOne({ email: req.user.email });
+      console.log("🔎 Found existing candidate:", candidate ? "YES" : "NO");
     }
 
     if (!candidate) {
@@ -463,7 +512,7 @@ export const uploadResume = async (req, res) => {
       // Update existing candidate with extracted data
       candidate.resumeUrl = fileId.toString(); // Store GridFS file ID
       candidate.resumeText = extractedText;
-      
+
       // Merge skills (avoid duplicates)
       if (extractedFields.skills.length > 0) {
         const existingSkills = new Set(candidate.skills.map(s => s.toLowerCase()));
@@ -473,7 +522,7 @@ export const uploadResume = async (req, res) => {
           }
         });
       }
-      
+
       // Update other fields only if they're empty or extracted value is better
       if (extractedFields.experience > 0 && candidate.experience === 0) {
         candidate.experience = extractedFields.experience;
@@ -487,9 +536,17 @@ export const uploadResume = async (req, res) => {
       if (extractedFields.phone && !candidate.phone) {
         candidate.phone = extractedFields.phone;
       }
-      
+
       await candidate.save();
     }
+
+    console.log("💾 Candidate saved to MongoDB:", candidate._id.toString());
+    console.log("📊 Final candidate data:", {
+      skills: candidate.skills.length,
+      experience: candidate.experience,
+      university: candidate.university,
+      resumeUrl: candidate.resumeUrl
+    });
 
     return res.json({
       success: true,

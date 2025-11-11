@@ -10,6 +10,7 @@ import {
   updateApplicationStatus,
   calculateMatch,
   uploadResume,
+  getMyProfile,
 } from "../controllers/candidateController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
@@ -35,6 +36,9 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 102
 
 // All routes require authentication
 router.use(protect);
+
+// Get my profile (for employees to get their own profile)
+router.get("/me", getMyProfile);
 
 router
   .route("/")

@@ -54,7 +54,12 @@ export const requireRole = (allowedRoles) => {
 // Export authorizeRoles as an alias for requireRole
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
+    console.log('🛡️ Role middleware: Checking role...');
+    console.log('👤 User:', req.user?.email, 'Role:', req.user?.role);
+    console.log('✅ Required roles:', roles.join(', '));
+
     if (!req.user) {
+      console.log('❌ User not authenticated');
       return res.status(401).json({
         success: false,
         message: "User not authenticated",
@@ -62,6 +67,7 @@ export const authorizeRoles = (...roles) => {
     }
 
     if (!roles.includes(req.user.role)) {
+      console.log('❌ Access denied - wrong role');
       return res.status(403).json({
         success: false,
         message: `Access denied. This route requires role: ${roles.join(
@@ -69,6 +75,8 @@ export const authorizeRoles = (...roles) => {
         )}`,
       });
     }
+
+    console.log('✅ Role authorized');
 
     next();
   };

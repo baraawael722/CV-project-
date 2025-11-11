@@ -57,16 +57,23 @@ export default function Profile() {
 
   const fetchCandidateProfile = async (token, email) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/candidates/search?q=${email}`, {
+      console.log('🔍 Fetching candidate profile...');
+
+      // Use /me endpoint for employees to get their own profile
+      const response = await fetch(`http://localhost:5000/api/candidates/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
 
+      console.log('📥 Profile response status:', response.status);
+
       if (response.ok) {
         const data = await response.json()
-        if (data.data && data.data.length > 0) {
-          const candidateData = data.data[0]
+        console.log('📦 Profile data:', data);
+
+        if (data.data) {
+          const candidateData = data.data
           setProfile(prev => ({
             ...prev,
             phone: candidateData.phone || '',
@@ -79,10 +86,15 @@ export default function Profile() {
             experience: candidateData.experience || 0,
             experienceLevel: candidateData.experienceLevel || 'Entry Level'
           }))
+          console.log('✅ Profile loaded successfully');
+        } else {
+          console.log('ℹ️ No profile found yet');
         }
+      } else {
+        console.error('❌ Failed to fetch profile:', response.status);
       }
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      console.error('❌ Error fetching profile:', error)
     }
   }
 
@@ -153,18 +165,33 @@ export default function Profile() {
   }
 
   const handleCVSubmit = async () => {
+    console.log('🎯 handleCVSubmit called!');
+
     if (!cvFile) {
+      console.log('❌ No file selected');
       alert('Please select a CV file first')
       return
     }
 
     const token = localStorage.getItem('token')
 
+    console.log('🚀 Starting CV upload...')
+    console.log('📄 File:', cvFile.name, cvFile.type, cvFile.size, 'bytes')
+    console.log('🔑 Token:', token ? 'EXISTS' : 'MISSING')
+
+    if (!token) {
+      console.error('❌ No token found! User not logged in.');
+      alert('❌ You must be logged in to upload CV. Please login again.');
+      return;
+    }
+
     try {
       setUploading(true)
 
       const formData = new FormData()
       formData.append('cv', cvFile)
+
+      console.log('📤 Sending request to backend...', 'URL:', 'http://localhost:5000/api/candidates/upload')
 
       const response = await fetch('http://localhost:5000/api/candidates/upload', {
         method: 'POST',
@@ -174,10 +201,15 @@ export default function Profile() {
         body: formData,
       })
 
+      console.log('📥 Response received!');
+      console.log('📥 Response status:', response.status, response.statusText)
+
       const data = await response.json()
+      console.log('📦 Response data:', JSON.stringify(data, null, 2))
+
       if (response.ok) {
         alert('✅ CV uploaded successfully! Fields auto-extracted.')
-        
+
         // Update profile with extracted fields
         if (data.data && data.data.candidate) {
           const extracted = data.data.candidate
@@ -191,19 +223,20 @@ export default function Profile() {
             resumeExtract: data.data.resumeText || ''
           }))
         }
-        
+
         // Clear file selection
         setCvFile(null)
-        
+
         // Refresh candidate profile from server
         fetchCandidateProfile(token, user.email)
       } else {
+        console.error('❌ Upload failed:', data.message)
         alert(`❌ Upload error: ${data.message || 'Server error'}`)
       }
       setUploading(false)
 
     } catch (error) {
-      console.error('Upload error:', error)
+      console.error('❌ Upload error:', error)
       alert('❌ Upload failed. Please try again.')
       setUploading(false)
     }

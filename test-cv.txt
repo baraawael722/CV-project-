@@ -1,0 +1,27 @@
+TEST CV DOCUMENT
+================
+
+Name: Ahmed Mohamed
+Email: ahmed@test.com
+Phone: +20 123 456 7890
+
+EDUCATION
+---------
+Bachelor of Computer Science
+Cairo University
+2018 - 2022
+
+EXPERIENCE
+----------
+Software Engineer - 3 years
+TechCorp Inc.
+
+SKILLS
+------
+JavaScript
+React
+Node.js
+Python
+MongoDB
+Docker
+AWS

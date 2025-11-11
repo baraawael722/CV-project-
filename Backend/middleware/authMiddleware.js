@@ -3,9 +3,15 @@ import User from "../models/User.js";
 
 export const verifyToken = async (req, res, next) => {
   try {
+    console.log('🔐 Auth middleware: Checking token...');
+    console.log('📍 Request URL:', req.method, req.originalUrl);
+
     const authHeader = req.headers.authorization;
 
+    console.log('🔑 Auth header:', authHeader ? 'EXISTS' : 'MISSING');
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log('❌ No token provided');
       return res.status(401).json({
         success: false,
         message: "No token provided. Access denied",
@@ -19,14 +25,19 @@ export const verifyToken = async (req, res, next) => {
       process.env.JWT_SECRET || "your-secret-key-here"
     );
 
+    console.log('✅ Token decoded:', decoded.email, decoded.role);
+
     const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
+      console.log('❌ User not found in database');
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
     }
+
+    console.log('✅ User authenticated:', user.email, user.role);
 
     req.user = user;
     next();
