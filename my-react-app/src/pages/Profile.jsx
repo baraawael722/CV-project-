@@ -176,11 +176,27 @@ export default function Profile() {
 
       const data = await response.json()
       if (response.ok) {
-        alert('✅ CV uploaded successfully!')
-        // store extracted text in profile for preview
-        if (data.data && data.data.resumeText) {
-          setProfile(prev => ({ ...prev, resumeExtract: data.data.resumeText }))
+        alert('✅ CV uploaded successfully! Fields auto-extracted.')
+        
+        // Update profile with extracted fields
+        if (data.data && data.data.candidate) {
+          const extracted = data.data.candidate
+          setProfile(prev => ({
+            ...prev,
+            skills: extracted.skills || prev.skills,
+            experience: extracted.experience || prev.experience,
+            university: extracted.university || prev.university,
+            degree: extracted.degree || prev.degree,
+            phone: extracted.phone || prev.phone,
+            resumeExtract: data.data.resumeText || ''
+          }))
         }
+        
+        // Clear file selection
+        setCvFile(null)
+        
+        // Refresh candidate profile from server
+        fetchCandidateProfile(token, user.email)
       } else {
         alert(`❌ Upload error: ${data.message || 'Server error'}`)
       }

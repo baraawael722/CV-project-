@@ -4,6 +4,95 @@ import fs from "fs";
 import path from "path";
 import pdf from "pdf-parse";
 
+// Helper: Extract fields from CV text using simple regex patterns
+function extractFieldsFromText(text) {
+  const extracted = {
+    skills: [],
+    experience: 0,
+    university: "",
+    degree: "",
+    phone: "",
+  };
+
+  if (!text) return extracted;
+
+  const lowerText = text.toLowerCase();
+
+  // Extract skills (common tech skills)
+  const skillPatterns = [
+    /\b(javascript|js|typescript|ts|react|angular|vue|node\.?js|express|mongodb|mysql|postgresql|python|java|c\+\+|c#|php|ruby|go|rust|swift|kotlin|html|css|sass|tailwind|bootstrap|git|docker|kubernetes|aws|azure|gcp|machine learning|ai|data science|pandas|numpy|tensorflow|pytorch)\b/gi
+  ];
+  
+  const foundSkills = new Set();
+  skillPatterns.forEach(pattern => {
+    const matches = text.match(pattern);
+    if (matches) {
+      matches.forEach(m => foundSkills.add(m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()));
+    }
+  });
+  extracted.skills = Array.from(foundSkills).slice(0, 15); // limit to 15 skills
+
+  // Extract years of experience
+  const expPatterns = [
+    /(\d+)\+?\s*years?\s+(?:of\s+)?experience/i,
+    /experience[:\s]+(\d+)\+?\s*years?/i,
+    /(\d+)\s*years?\s+(?:in|as|with)/i
+  ];
+  
+  for (const pattern of expPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      extracted.experience = parseInt(match[1]);
+      break;
+    }
+  }
+
+  // Extract university
+  const uniPatterns = [
+    /university[:\s]+([^\n]{5,60})/i,
+    /(cairo university|ain shams university|alexandria university|harvard|mit|stanford|oxford|cambridge)/i,
+    /\b([A-Z][a-z]+\s+University)\b/
+  ];
+  
+  for (const pattern of uniPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      extracted.university = match[1].trim();
+      break;
+    }
+  }
+
+  // Extract degree
+  const degreePatterns = [
+    /\b(bachelor|master|phd|doctorate|b\.?sc|m\.?sc|mba|b\.?a|m\.?a|b\.?eng|m\.?eng)\s+(?:of|in|degree)?\s*([^\n]{5,60})?/i,
+    /(computer science|engineering|business administration|data science|information technology|software engineering)/i
+  ];
+  
+  for (const pattern of degreePatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      extracted.degree = match[0].trim().substring(0, 100);
+      break;
+    }
+  }
+
+  // Extract phone
+  const phonePatterns = [
+    /(\+?\d{1,4}[\s-]?)?\(?\d{2,4}\)?[\s-]?\d{3,4}[\s-]?\d{3,4}/,
+    /\b\d{10,15}\b/
+  ];
+  
+  for (const pattern of phonePatterns) {
+    const match = text.match(pattern);
+    if (match && match[0]) {
+      extracted.phone = match[0].trim();
+      break;
+    }
+  }
+
+  return extracted;
+}
+
 // Get all candidates
 export const getAllCandidates = async (req, res) => {
   try {
@@ -328,6 +417,9 @@ export const uploadResume = async (req, res) => {
       extractedText = "";
     }
 
+    // Extract structured fields from text
+    const extractedFields = extractFieldsFromText(extractedText);
+
     // Find candidate by authenticated user's email or create/update
     let candidate = null;
     if (req.user && req.user.email) {
@@ -335,16 +427,47 @@ export const uploadResume = async (req, res) => {
     }
 
     if (!candidate) {
-      // create a minimal candidate record
+      // create a minimal candidate record with extracted data
       candidate = await Candidate.create({
         name: req.user?.name || req.user?.email || "Unknown",
         email: req.user?.email || `unknown_${Date.now()}@local`,
         resumeUrl: fileUrl,
         resumeText: extractedText,
+        skills: extractedFields.skills.length > 0 ? extractedFields.skills : [],
+        experience: extractedFields.experience || 0,
+        university: extractedFields.university || "",
+        degree: extractedFields.degree || "",
+        phone: extractedFields.phone || "",
       });
     } else {
+      // Update existing candidate with extracted data
       candidate.resumeUrl = fileUrl;
       candidate.resumeText = extractedText;
+      
+      // Merge skills (avoid duplicates)
+      if (extractedFields.skills.length > 0) {
+        const existingSkills = new Set(candidate.skills.map(s => s.toLowerCase()));
+        extractedFields.skills.forEach(skill => {
+          if (!existingSkills.has(skill.toLowerCase())) {
+            candidate.skills.push(skill);
+          }
+        });
+      }
+      
+      // Update other fields only if they're empty or extracted value is better
+      if (extractedFields.experience > 0 && candidate.experience === 0) {
+        candidate.experience = extractedFields.experience;
+      }
+      if (extractedFields.university && !candidate.university) {
+        candidate.university = extractedFields.university;
+      }
+      if (extractedFields.degree && !candidate.degree) {
+        candidate.degree = extractedFields.degree;
+      }
+      if (extractedFields.phone && !candidate.phone) {
+        candidate.phone = extractedFields.phone;
+      }
+      
       await candidate.save();
     }
 
@@ -354,7 +477,15 @@ export const uploadResume = async (req, res) => {
       data: {
         resumeUrl: fileUrl,
         resumeText: extractedText,
+        extractedFields: extractedFields,
         candidateId: candidate._id,
+        candidate: {
+          skills: candidate.skills,
+          experience: candidate.experience,
+          university: candidate.university,
+          degree: candidate.degree,
+          phone: candidate.phone,
+        }
       },
     });
   } catch (error) {
