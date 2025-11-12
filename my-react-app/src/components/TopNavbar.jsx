@@ -19,7 +19,7 @@ export default function TopNavbar() {
     if (user.role === 'hr') {
       return [
         { name: 'Dashboard', path: '/hr-dashboard', icon: '🏠' },
-        { name: 'Jobs', path: '/jobs', icon: '💼' },
+        { name: 'Post Job', path: '/hr_jobs', icon: '💼' },
         { name: 'Profile', path: '/profile', icon: '👤' }
       ]
     }

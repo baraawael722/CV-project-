@@ -22,6 +22,27 @@ export const getAllJobs = async (req, res) => {
   }
 };
 
+// Get all public jobs (for regular users)
+export const getPublicJobs = async (req, res) => {
+  try {
+    const jobs = await Job.find({ status: "Active" })
+      .sort({ createdAt: -1 })
+      .populate("postedBy", "name email");
+
+    res.json({
+      success: true,
+      count: jobs.length,
+      data: jobs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 // Get single job
 export const getJob = async (req, res) => {
   try {
@@ -58,21 +79,39 @@ export const createJob = async (req, res) => {
       description,
       department,
       requiredSkills,
+      technicalSkills,
+      softSkills,
+      qualifications,
       experienceLevel,
       salary,
       location,
       jobType,
+      workType,
+      expectedStartDate,
+      openingReason,
+      directManager,
+      approvals,
+      publicationDetails,
     } = req.body;
 
     const job = await Job.create({
       title,
       description,
       department,
-      requiredSkills,
+      requiredSkills: requiredSkills || [...(technicalSkills || []), ...(softSkills || [])],
+      technicalSkills,
+      softSkills,
+      qualifications,
       experienceLevel,
       salary,
       location,
       jobType,
+      workType,
+      expectedStartDate,
+      openingReason,
+      directManager,
+      approvals,
+      publicationDetails,
       postedBy: req.user.id,
     });
 

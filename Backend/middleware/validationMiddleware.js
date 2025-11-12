@@ -34,6 +34,7 @@ export const jobValidation = [
     .isArray({ min: 1 })
     .withMessage("At least one skill is required"),
   body("experienceLevel")
+    .optional()
     .isIn(["Entry", "Junior", "Mid", "Senior", "Lead"])
     .withMessage("Invalid experience level"),
   body("salary.min")

@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getAllJobs,
+  getPublicJobs,
   getJob,
   createJob,
   updateJob,
@@ -16,6 +17,9 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(protect);
+
+// Public jobs route (for all authenticated users)
+router.get("/public", getPublicJobs);
 
 // Routes that require HR role
 router

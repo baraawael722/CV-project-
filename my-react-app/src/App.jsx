@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import HRDashboard from "./pages/HRDashboard.jsx";
 import Skills from "./pages/Skills.jsx";
 import Jobs from "./pages/Jobs.jsx";
+import HRJobPosting from "./pages/HRJobPosting.jsx";
 import Learning from "./pages/Learning.jsx";
 import Interview from "./pages/Interview.jsx";
 import Profile from "./pages/Profile.jsx";
@@ -91,9 +92,18 @@ export default function App() {
         <Route
           path="/jobs"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['employee', 'user']}>
               <TopNavbar />
               <Jobs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr_jobs"
+          element={
+            <ProtectedRoute allowedRoles={['hr']}>
+              <TopNavbar />
+              <HRJobPosting />
             </ProtectedRoute>
           }
         />
