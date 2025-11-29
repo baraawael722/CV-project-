@@ -1,5 +1,20 @@
 {
-  "dependencies": {
-    "dependencies": "^0.0.1"
+  "name": "cv-project-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "Backend",
+    "my-react-app"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev --workspace Backend\" \"npm:dev --workspace my-react-app\"",
+    "start": "npm run start --workspace Backend",
+    "build": "npm run build --workspace my-react-app",
+    "install:all": "npm install",
+    "backend:dev": "npm run dev --workspace Backend",
+    "frontend:dev": "npm run dev --workspace my-react-app"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
   }
 }
